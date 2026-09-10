@@ -1,10 +1,10 @@
 # ridesync
 
 ### Steps to install the backend on your system makesure docker is installed
-'''Docker
+```Docker
  docker compose build
- '''
+```
 
- '''Docker
+ ```Docker
  docker compose up
- '''
+ ```
