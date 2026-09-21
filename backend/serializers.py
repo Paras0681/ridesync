@@ -1,8 +1,11 @@
 from rest_framework import serializers
-from .models import Rider, BikeInfo, Message
+from .models import Rider, RiderLocation, BikeInfo, Message
 
 
 class RiderListSerializer(serializers.ModelSerializer):
+    """
+    Serializer to fetch riders data.
+    """
     class Meta:
         model = Rider
         fields = [
@@ -18,6 +21,9 @@ class RiderListSerializer(serializers.ModelSerializer):
 
 
 class BikeInfoSerializer(serializers.ModelSerializer):
+    """
+    Serializer to fetch bike data of the rider
+    """
     class Meta:
         model = BikeInfo
         fields = [
@@ -29,6 +35,9 @@ class BikeInfoSerializer(serializers.ModelSerializer):
 
 
 class RiderDetailSerializer(serializers.ModelSerializer):
+    """
+    Serializer to fetch rider-detail data for the users
+    """
     bikes = BikeInfoSerializer(many=True, read_only=True)
     class Meta:
         model = Rider
@@ -47,6 +56,9 @@ class RiderDetailSerializer(serializers.ModelSerializer):
         ]
 
 class MessageSerializer(serializers.ModelSerializer):
+    """
+    Serializer to fetch chats i.e message data for the users
+    """
     sender_name = serializers.CharField(source="sender.first_name", read_only=True)
     class Meta:
         model = Message
@@ -62,6 +74,39 @@ class MessageSerializer(serializers.ModelSerializer):
         read_only_fields = [
             "message_id", 
             "sender_name", 
-            "created_at"
+            "created_at",
+            "sender",
         ]
 
+
+class RiderLocationSerializer(serializers.ModelSerializer):
+    """
+    Serializer to get lat/long data of the rider.
+    """
+    rider_id = serializers.UUIDField(source="rider.rider_id", read_only=True)
+    rider_name = serializers.CharField(source="rider.first_name", read_only=True)
+
+    class Meta:
+        model = RiderLocation
+        fields = [
+            "rider_id", 
+            "rider_name", 
+            "latitude", 
+            "longitude", 
+            "status", 
+            "updated_at"
+        ]
+        read_only_fields = [
+            "rider_id", 
+            "rider_name", 
+            "updated_at"
+        ]
+
+
+class UpdateLocationSerializer(serializers.ModelSerializer):
+    """
+    Input-only serializer to post the rider location.
+    """
+    latitude = serializers.DecimalField(max_digits=9, decimal_places=6)
+    longitude = serializers.DecimalField(max_digits=9, decimal_places=6)
+    status = serializers.ChoiceField(choices=RiderLocation.Status.choices, required=False)

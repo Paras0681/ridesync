@@ -19,7 +19,7 @@ class Rider(models.Model):
         AB_NEGATIVE = "AB-", "ab-",
         AB_POSITIVE = "AB+", "ab+",
     
-    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='users')
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='rider_profile')
     rider_id = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
     first_name = models.CharField(max_length=30)
     last_name = models.CharField(max_length=30)
@@ -65,7 +65,7 @@ class BikeInfo(models.Model):
         verbose_name = "BikeInfo"
         verbose_name_plural = "BikeInfos"
         indexes = [
-            models.Index(fields=['rider_id', 'created_at']),
+            models.Index(fields=["rider", "created_at"]),
         ]
 
 
