@@ -47,9 +47,10 @@ class RiderLocation(models.Model):
         FUELLING = "FUELLING", "fuelling"
         ONROAD = "ONROAD", "onroad"
     rider = models.ForeignKey(Rider, on_delete=models.CASCADE, related_name="locations")
-    latitude = models.DecimalField(max_digits=9, decimal_places=6)
-    longitude = models.DecimalField(max_digits=9, decimal_places=6)
+    latitude = models.DecimalField(max_digits=17, decimal_places=15)
+    longitude = models.DecimalField(max_digits=17, decimal_places=15)
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.REST)
+    updated_at = models.DateTimeField(auto_now=True)
 
 
 class BikeInfo(models.Model):

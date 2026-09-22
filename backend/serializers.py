@@ -103,10 +103,10 @@ class RiderLocationSerializer(serializers.ModelSerializer):
         ]
 
 
-class UpdateLocationSerializer(serializers.ModelSerializer):
+class UpdateLocationSerializer(serializers.Serializer):
     """
     Input-only serializer to post the rider location.
     """
-    latitude = serializers.DecimalField(max_digits=9, decimal_places=6)
-    longitude = serializers.DecimalField(max_digits=9, decimal_places=6)
+    latitude = serializers.DecimalField(max_digits=17, decimal_places=15)
+    longitude = serializers.DecimalField(max_digits=17, decimal_places=15)
     status = serializers.ChoiceField(choices=RiderLocation.Status.choices, required=False)

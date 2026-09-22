@@ -62,6 +62,8 @@ class RiderLocationDetailView(APIView):
 
 
 class UpdateMyLocationView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+    
     def post(self, request):
         serializer = UpdateLocationSerializer(data = request.data)
         serializer.is_valid(raise_exception=True)
