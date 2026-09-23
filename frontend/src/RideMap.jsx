@@ -1,14 +1,5 @@
-import { useState, useEffect, useRef, useCallback } from "react";
-import {
-  MapContainer,
-  TileLayer,
-  Marker,
-  Popup,
-  Polyline,
-  ZoomControl,
-  useMapEvents,
-  useMap,
-} from "react-leaflet";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { MapContainer, TileLayer, Marker, Popup, Polyline, ZoomControl, useMap } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 
@@ -39,18 +30,11 @@ const destinationIcon = new L.Icon({
 });
 
 // ---- India-only viewport ----
-// Roughly covers mainland India + islands. Used both to lock map panning
-// and to scope search results so Nominatim doesn't waste time matching
-// place names outside the country.
 const INDIA_BOUNDS = L.latLngBounds([6.5, 68.1], [37.6, 97.4]);
 const INDIA_CENTER = [22.9734, 78.6569];
 const INDIA_VIEWBOX = "68.1,37.6,97.4,6.5"; // left,top,right,bottom for Nominatim
 
-// ---- Geocoding (search box) via OSM Nominatim ----
-// Free, no API key. Usage policy: max ~1 request/sec, must set a
-// descriptive User-Agent/Referer in production. Restricting to India
-// (countrycodes + viewbox/bounded) both matches the "India only" ask and
-// trims irrelevant matches, which is most of what was making it feel slow.
+// ---- Geocoding (search box) via OSM Nominatim, restricted to India ----
 let searchAbortController = null;
 
 async function searchPlaces(query) {
@@ -80,13 +64,12 @@ async function searchPlaces(query) {
       lng: parseFloat(item.lon),
     }));
   } catch (err) {
-    if (err.name === "AbortError") return []; // a newer keystroke superseded this request
+    if (err.name === "AbortError") return [];
     return [];
   }
 }
 
 // ---- Routing via OSRM public demo server ----
-// steps=true gives us the turn-by-turn maneuver list, not just the line.
 async function fetchRoute(from, to) {
   const url = `https://router.project-osrm.org/route/v1/driving/${from.lng},${from.lat};${to.lng},${to.lat}?overview=full&geometries=geojson&steps=true`;
   const res = await fetch(url);
@@ -94,23 +77,14 @@ async function fetchRoute(from, to) {
   const data = await res.json();
   if (!data.routes || data.routes.length === 0) throw new Error("No route found");
   const route = data.routes[0];
-  const steps = route.legs[0].steps;
 
   return {
     coordinates: route.geometry.coordinates.map(([lng, lat]) => [lat, lng]),
-    distanceKm: (route.distance / 1000).toFixed(1),
-    durationMin: Math.round(route.duration / 60),
-    instruction: buildInstruction(steps),
+    steps: route.legs[0].steps,
   };
 }
 
-// ---- Turn-by-turn instruction text ----
-// OSRM's first step is always "depart"; its maneuver is at the START of
-// the step, and its .distance is how far you travel before the NEXT
-// maneuver (steps[1]) happens. So "next instruction" = describe(steps[1]),
-// "distance until then" = steps[0].distance. Since the whole route is
-// recalculated fresh every time the rider's position updates, this stays
-// accurate without any separate "how far along the route am I" tracking.
+// ---- Turn-by-turn text helpers ----
 const MANEUVER_TEXT = {
   merge: "Merge",
   "on ramp": "Take the ramp",
@@ -153,21 +127,23 @@ function formatDistance(meters) {
   return `${(meters / 1000).toFixed(1)} km`;
 }
 
-function buildInstruction(steps) {
-  if (!steps || steps.length === 0) return null;
-  if (steps.length === 1) return describeManeuver(steps[0]);
-
-  const current = steps[0];
-  const next = steps[1];
-
-  if (current.distance < 30) {
-    return describeManeuver(next);
-  }
-  return `In ${formatDistance(current.distance)}, ${describeManeuver(next).toLowerCase()}`;
+// Recenters the map once, the first time a location fix comes in — so
+// logging in shows "you, zoomed in" rather than the whole India view.
+// Doesn't fire again after that (FollowMe, below, handles continuous
+// recentering during an active ride).
+function InitialCenter({ position }) {
+  const map = useMap();
+  const hasCentered = useRef(false);
+  useEffect(() => {
+    if (position && !hasCentered.current) {
+      map.setView([position.lat, position.lng], 15);
+      hasCentered.current = true;
+    }
+  }, [position, map]);
+  return null;
 }
 
-// While a ride is active, keep the map centered on the rider's live
-// position instead of requiring them to manually pan/scroll while driving.
+// While a ride is active, keep the map centered on the rider's live position.
 function FollowMe({ position, enabled }) {
   const map = useMap();
   useEffect(() => {
@@ -178,27 +154,46 @@ function FollowMe({ position, enabled }) {
   return null;
 }
 
-// Lets the user click directly on the map to drop a destination pin,
-// as an alternative to typing in the search box.
-function MapClickHandler({ onSelect }) {
-  useMapEvents({
-    click(e) {
-      onSelect({ lat: e.latlng.lat, lng: e.latlng.lng, label: "Dropped pin" });
-    },
-  });
-  return null;
+// Bottom-right "locate me" button — jumps back to the rider's current
+// position at a close zoom, e.g. after they've panned away.
+function LocateButton({ position }) {
+  const map = useMap();
+  return (
+    <button
+      onClick={() => position && map.setView([position.lat, position.lng], 15)}
+      disabled={!position}
+      title="Center on my location"
+      style={{
+        position: "absolute",
+        bottom: 20,
+        right: 10,
+        zIndex: 1000,
+        width: 44,
+        height: 44,
+        borderRadius: "50%",
+        border: "1px solid #ccc",
+        background: "white",
+        fontSize: 20,
+        cursor: position ? "pointer" : "default",
+        boxShadow: "0 1px 4px rgba(0,0,0,0.3)",
+      }}
+    >
+      📍
+    </button>
+  );
 }
 
 /**
  * RideMap
  *
  * Props:
- * - currentLocation: { lat, lng } — the logged-in rider's own position
- * - riders: [{ rider_id, rider_name, latitude, longitude }] — other riders'
- *   latest locations.
- * - onRouteInfo: ({ route, error }) => void — called whenever the route
- *   changes; route includes distanceKm, durationMin, and instruction.
- * - followMe: boolean — auto-recenter the map on the rider while true.
+ * - currentLocation: { lat, lng }
+ * - riders: [{ rider_id, rider_name, latitude, longitude }]
+ * - onRouteInfo: ({ route, error }) => void
+ * - followMe: boolean — auto-recenter on the rider while true (during a ride)
+ *
+ * Destination can only be set via the search box — there is no
+ * click/tap-to-drop-pin behavior.
  */
 export default function RideMap({ currentLocation, riders = [], onRouteInfo, followMe = false }) {
   const [query, setQuery] = useState("");
@@ -206,14 +201,12 @@ export default function RideMap({ currentLocation, riders = [], onRouteInfo, fol
   const [destination, setDestination] = useState(null);
   const [route, setRoute] = useState(null);
   const [error, setError] = useState(null);
+  const [turnIndex, setTurnIndex] = useState(0);
   const debounceRef = useRef(null);
 
   const handleQueryChange = (value) => {
     setQuery(value);
     clearTimeout(debounceRef.current);
-    // 250ms instead of 400ms — the remaining latency is Nominatim's own
-    // response time, which this can't fix, but every bit of local delay
-    // we remove helps it feel more responsive.
     debounceRef.current = setTimeout(async () => {
       const results = await searchPlaces(value);
       setSuggestions(results);
@@ -232,6 +225,7 @@ export default function RideMap({ currentLocation, riders = [], onRouteInfo, fol
     fetchRoute(currentLocation, destination)
       .then((r) => {
         setRoute(r);
+        setTurnIndex(r.steps.length > 1 ? 1 : 0); // land on the first real turn, not "depart"
         onRouteInfo?.({ route: r, error: null });
       })
       .catch((err) => {
@@ -240,12 +234,33 @@ export default function RideMap({ currentLocation, riders = [], onRouteInfo, fol
       });
   }, [destination, currentLocation]);
 
+  const steps = route?.steps || [];
+
+  // Distance from the rider's current position to the START of each step,
+  // i.e. how far until that step's maneuver happens.
+  const cumulativeDistances = useMemo(() => {
+    const arr = [0];
+    let sum = 0;
+    for (let i = 0; i < steps.length - 1; i++) {
+      sum += steps[i].distance;
+      arr.push(sum);
+    }
+    return arr;
+  }, [steps]);
+
+  const turnText = useMemo(() => {
+    if (steps.length === 0) return null;
+    const step = steps[turnIndex];
+    if (step.maneuver.type === "depart") return describeManeuver(step);
+    return `In ${formatDistance(cumulativeDistances[turnIndex])}, ${describeManeuver(step).toLowerCase()}`;
+  }, [steps, turnIndex, cumulativeDistances]);
+
   const mapCenter = currentLocation ? [currentLocation.lat, currentLocation.lng] : INDIA_CENTER;
-  const initialZoom = currentLocation ? 13 : 5;
+  const initialZoom = currentLocation ? 15 : 5;
 
   return (
     <div style={{ position: "relative", height: "100%", width: "100%" }}>
-      {/* Search box */}
+      {/* Search box — the only way to set a destination */}
       <div style={{ position: "absolute", top: 10, left: 10, zIndex: 1000, width: 280 }}>
         <input
           type="text"
@@ -274,8 +289,8 @@ export default function RideMap({ currentLocation, riders = [], onRouteInfo, fol
         )}
       </div>
 
-      {/* Turn-by-turn banner, Google-Maps-nav style */}
-      {route?.instruction && (
+      {/* Turn-by-turn banner with prev/next to browse the whole route */}
+      {turnText && (
         <div
           style={{
             position: "absolute",
@@ -283,37 +298,34 @@ export default function RideMap({ currentLocation, riders = [], onRouteInfo, fol
             left: "50%",
             transform: "translateX(-50%)",
             zIndex: 1000,
+            display: "flex",
+            alignItems: "center",
+            gap: 10,
             background: "#1a73e8",
             color: "white",
-            padding: "10px 20px",
+            padding: "8px 12px",
             borderRadius: 8,
-            fontSize: 15,
+            fontSize: 14,
             fontWeight: 600,
             boxShadow: "0 2px 6px rgba(0,0,0,0.3)",
-            maxWidth: "70%",
-            textAlign: "center",
+            maxWidth: "78%",
           }}
         >
-          {route.instruction}
-        </div>
-      )}
-
-      {!currentLocation && (
-        <div
-          style={{
-            position: "absolute",
-            bottom: 10,
-            left: "50%",
-            transform: "translateX(-50%)",
-            zIndex: 1000,
-            background: "white",
-            padding: "6px 14px",
-            borderRadius: 6,
-            fontSize: 13,
-            boxShadow: "0 1px 4px rgba(0,0,0,0.2)",
-          }}
-        >
-          Waiting for your location…
+          <button
+            onClick={() => setTurnIndex((i) => Math.max(0, i - 1))}
+            disabled={turnIndex === 0}
+            style={{ background: "none", border: "none", color: "white", fontSize: 18, cursor: turnIndex === 0 ? "default" : "pointer", opacity: turnIndex === 0 ? 0.4 : 1 }}
+          >
+            ‹
+          </button>
+          <span style={{ textAlign: "center" }}>{turnText}</span>
+          <button
+            onClick={() => setTurnIndex((i) => Math.min(steps.length - 1, i + 1))}
+            disabled={turnIndex === steps.length - 1}
+            style={{ background: "none", border: "none", color: "white", fontSize: 18, cursor: turnIndex === steps.length - 1 ? "default" : "pointer", opacity: turnIndex === steps.length - 1 ? 0.4 : 1 }}
+          >
+            ›
+          </button>
         </div>
       )}
 
@@ -327,43 +339,35 @@ export default function RideMap({ currentLocation, riders = [], onRouteInfo, fol
         zoomControl={false}
         style={{ height: "100%", width: "100%" }}
       >
-        {/* Zoom control moved to bottom-left per request */}
         <ZoomControl position="bottomleft" />
 
-        {/* Standard OpenStreetMap tiles — free, no API key. As noted
-            earlier, raster tiles like this always render the full
-            cartography (buildings, parks, labels) since they're
-            pre-rendered images; a true "roads only" look needs vector
-            tiles + a custom style (e.g. MapLibre) as a separate project. */}
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
 
-        <MapClickHandler onSelect={selectDestination} />
+        <InitialCenter position={currentLocation} />
         <FollowMe position={currentLocation} enabled={followMe} />
+        <LocateButton position={currentLocation} />
 
         {currentLocation && (
           <Marker position={[currentLocation.lat, currentLocation.lng]}>
-            <Popup>Me</Popup>
+            <Popup>You</Popup>
           </Marker>
         )}
 
-        {/* Other riders in the group */}
         {riders.map((r) => (
           <Marker key={r.rider_id} position={[r.latitude, r.longitude]} icon={riderIcon}>
             <Popup>{r.rider_name}</Popup>
           </Marker>
         ))}
 
-        {/* Destination pin */}
         {destination && (
           <Marker position={[destination.lat, destination.lng]} icon={destinationIcon}>
             <Popup>{destination.label}</Popup>
           </Marker>
         )}
 
-        {/* Route line */}
         {route && <Polyline positions={route.coordinates} color="#1a73e8" weight={5} />}
       </MapContainer>
     </div>

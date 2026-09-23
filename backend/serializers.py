@@ -1,6 +1,15 @@
 from rest_framework import serializers
-from .models import Rider, RiderLocation, BikeInfo, Message
+from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
+from .models import Rider, RiderLocation, BikeInfo, Message, Group
 
+class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
+    def validate(self, attrs):
+        data = super().validate(attrs)
+        try:
+            data["rider_id"] = str(self.user.rider_profile.rider_id)
+        except AttributeError:
+            data["rider_id"] = None
+        return data
 
 class RiderListSerializer(serializers.ModelSerializer):
     """
@@ -59,21 +68,30 @@ class MessageSerializer(serializers.ModelSerializer):
     """
     Serializer to fetch chats i.e message data for the users
     """
-    sender_name = serializers.CharField(source="sender.first_name", read_only=True)
+    sender_name = serializers.CharField(
+        source="sender.first_name",
+        read_only=True
+    )
+
+    group = serializers.SlugRelatedField(
+        slug_field="group_name",
+        queryset=Group.objects.all()
+    )
+
     class Meta:
         model = Message
         fields = [
-            "message_id", 
-            "sender", 
-            "sender_name", 
-            "group", 
-            "chat_message", 
-            "message_type", 
-            "created_at"
+            "message_id",
+            "sender",
+            "sender_name",
+            "group",
+            "chat_message",
+            "message_type",
+            "created_at",
         ]
         read_only_fields = [
-            "message_id", 
-            "sender_name", 
+            "message_id",
+            "sender_name",
             "created_at",
             "sender",
         ]

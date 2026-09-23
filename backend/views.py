@@ -2,9 +2,11 @@ from rest_framework import status, permissions
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.pagination import CursorPagination
+from rest_framework_simplejwt.views import TokenObtainPairView
 
 from .models import Rider, RiderLocation, BikeInfo, Message
 from .serializers import (
+    CustomTokenObtainPairSerializer,
     RiderListSerializer,
     RiderDetailSerializer,
     BikeInfoSerializer,
@@ -12,6 +14,10 @@ from .serializers import (
     RiderLocationSerializer,
     UpdateLocationSerializer
 )
+
+class CustomTokenObtainPairView(TokenObtainPairView):
+    serializer_class = CustomTokenObtainPairSerializer
+
 
 # Rider and Biker related views
 class RiderListView(APIView):
@@ -44,6 +50,31 @@ class RiderDetailView(APIView):
         )
 
 
+class BikeListView(APIView):
+
+    def get(self, request):
+        bikes = BikeInfo.objects.all()
+        serializer = BikeInfoSerializer(bikes, many=True)
+        return Response(
+            serializer.data,
+            status=status.HTTP_200_OK
+        )
+
+    def post(self, request):
+        serializer = BikeInfoSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(
+                serializer.data,
+                status=status.HTTP_201_CREATED
+            )
+        return Response(
+            serializer.errors,
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+
+# Location related views
 class RiderLocationDetailView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
@@ -94,40 +125,26 @@ class GroupLocationView(APIView):
         )
 
 
-class BikeListView(APIView):
-
-    def get(self, request):
-        bikes = BikeInfo.objects.all()
-        serializer = BikeInfoSerializer(bikes, many=True)
-        return Response(
-            serializer.data,
-            status=status.HTTP_200_OK
-        )
-
-    def post(self, request):
-        serializer = BikeInfoSerializer(data=request.data)
-        if serializer.is_valid():
-            serializer.save()
-            return Response(
-                serializer.data,
-                status=status.HTTP_201_CREATED
-            )
-        return Response(
-            serializer.errors,
-            status=status.HTTP_400_BAD_REQUEST
-        )
-
 # Chats and notification related views
+class MessageCursorPagination(CursorPagination):
+    page_size = 20
+    ordering = ("-created_at", "-id")
+
+
 class MessageListView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
-        messages = Message.objects.all()
-        serializer = MessageSerializer(messages, many=True)
-        return Response(
-            serializer.data,
-            status=status.HTTP_200_OK
-        )
+        messages = Message.objects.all().order_by("-created_at", "-id")
+        group_name = request.query_params.get("group")
+        if group_name:
+            messages = messages.filter(group__group_name=group_name)
 
+        paginator = MessageCursorPagination()
+        page = paginator.paginate_queryset(messages, request)
+        serializer = MessageSerializer(page, many=True)
+        return paginator.get_paginated_response(serializer.data)
+    
     def post(self, request):
         serializer = MessageSerializer(data=request.data)
         if serializer.is_valid():
@@ -143,10 +160,6 @@ class MessageListView(APIView):
             status=status.HTTP_400_BAD_REQUEST
         )
 
-class MessageCursorPagination(CursorPagination):
-    page_size = 20
-    ordering = ("-created_at", "-id")
-
 class NotificationsListView(APIView):
     permission_classes = [permissions.IsAuthenticated]
     pagination_class = MessageCursorPagination
@@ -156,10 +169,7 @@ class NotificationsListView(APIView):
             message_type="NOTIFICATION",
             group__members=request.user.rider,
         )
-        serialzer = MessageSerializer(notifications, many=True)
-        return Response(
-            serialzer.data,
-            status=status.HTTP_200_OK
-        )
-
-# Location related views
+        paginator = MessageCursorPagination()
+        page = paginator.paginate_queryset(notifications, request)
+        serializer = MessageSerializer(page, many=True)
+        return paginator.get_paginated_response(serializer.data)

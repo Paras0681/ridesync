@@ -1,6 +1,6 @@
 from django.urls import path
-from rest_framework_simplejwt.views import TokenObtainPairView
 from .views import (
+    CustomTokenObtainPairView,
     RiderListView,
     RiderDetailView,
     BikeListView,
@@ -13,7 +13,7 @@ from .views import (
 
 
 urlpatterns = [
-    path("token/", TokenObtainPairView.as_view()),
+    path("token/", CustomTokenObtainPairView.as_view()),
     #rider and bike related endpoints
     path("riders/", RiderListView.as_view()),
     path("riders/<uuid:rider_id>/", RiderDetailView.as_view()),

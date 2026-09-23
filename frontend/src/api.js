@@ -75,6 +75,7 @@ export async function login(username, password) {
   const res = await axios.post(`${API_BASE_URL}/token/`, { username, password });
   localStorage.setItem("access_token", res.data.access);
   localStorage.setItem("refresh_token", res.data.refresh);
+  localStorage.setItem("rider_id", res.data.rider_id);
 }
 
 export function logout() {

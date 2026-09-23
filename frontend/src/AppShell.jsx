@@ -1,6 +1,9 @@
-import { useState } from "react";
-import { logout } from "./api";
+import { useState, useEffect } from "react";
+import api, { logout } from "./api";
 import MapsScreen from "./MapsScreen";
+import ChatScreen from "./ChatScreen";
+import InfoScreen from "./InfoScreen";
+import AccountScreen from "./AccountScreen";
 
 const TABS = [
   { key: "maps", label: "Maps" },
@@ -9,33 +12,27 @@ const TABS = [
   { key: "acc", label: "Acc" },
 ];
 
-function StubScreen({ name }) {
-  return (
-    <div style={{ padding: 24, color: "#666" }}>
-      <p>{name} — coming later.</p>
-    </div>
-  );
-}
-
 export default function AppShell() {
   const [activeTab, setActiveTab] = useState("maps");
-
-  // NOTE: there's no "/riders/me/" endpoint yet, so we can't show the
-  // rider's real name here without decoding the JWT (which only carries
-  // the Django user id, not the name) or an extra API call. Placeholder
-  // for now — worth adding a small "my profile" endpoint next.
-  const displayName = "Rider";
+  const [displayName, setDisplayName] = useState("Rider");
+  const riderId = localStorage.getItem("rider_id");
+  useEffect(() => {
+    api
+      .get(`/riders/${riderId}/`)
+      .then((res) => setDisplayName(res.data.first_name))
+      .catch(() => {}); // header just keeps the "Rider" placeholder on failure
+  }, []);
 
   const renderTab = () => {
     switch (activeTab) {
       case "maps":
         return <MapsScreen />;
       case "chat":
-        return <StubScreen name="Chat" />;
+        return <ChatScreen />;
       case "info":
-        return <StubScreen name="Info" />;
+        return <InfoScreen />;
       case "acc":
-        return <StubScreen name="Account" />;
+        return <AccountScreen />;
       default:
         return null;
     }
@@ -43,7 +40,6 @@ export default function AppShell() {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100vh" }}>
-      {/* Header */}
       <div
         style={{
           display: "flex",
@@ -57,10 +53,8 @@ export default function AppShell() {
         <button onClick={logout}>Log out</button>
       </div>
 
-      {/* Active tab content */}
       <div style={{ flex: 1, overflow: "hidden" }}>{renderTab()}</div>
 
-      {/* Bottom tab bar */}
       <div style={{ display: "flex", borderTop: "1px solid #ddd" }}>
         {TABS.map((tab) => (
           <button

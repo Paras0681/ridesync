@@ -1,7 +1,6 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import LoginPage from "./LoginPage";
 import AppShell from "./AppShell";
-import TestDashboard from "./TestDashboard";
 import { ProtectedRoute } from "./ProtectedRoute";
 
 export default function App() {
@@ -22,7 +21,6 @@ export default function App() {
           path="/debug"
           element={
             <ProtectedRoute>
-              <TestDashboard />
             </ProtectedRoute>
           }
         />
