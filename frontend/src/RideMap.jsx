@@ -13,6 +13,13 @@ L.Icon.Default.mergeOptions({
   shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
 });
 
+const helmetIcon = L.divIcon({
+  html: '<div style="font-size:26px; line-height:34px; text-align:center;">🪖</div>',
+  className: "", // avoid Leaflet's default icon box/shadow styling
+  iconSize: [34, 34],
+  iconAnchor: [17, 17],
+});
+
 const riderIcon = new L.Icon({
   iconUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
   iconRetinaUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png",
@@ -351,7 +358,7 @@ export default function RideMap({ currentLocation, riders = [], onRouteInfo, fol
         <LocateButton position={currentLocation} />
 
         {currentLocation && (
-          <Marker position={[currentLocation.lat, currentLocation.lng]}>
+          <Marker position={[currentLocation.lat, currentLocation.lng]} icon={helmetIcon}>
             <Popup>You</Popup>
           </Marker>
         )}

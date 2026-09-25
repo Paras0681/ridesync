@@ -128,3 +128,9 @@ class UpdateLocationSerializer(serializers.Serializer):
     latitude = serializers.DecimalField(max_digits=17, decimal_places=15)
     longitude = serializers.DecimalField(max_digits=17, decimal_places=15)
     status = serializers.ChoiceField(choices=RiderLocation.Status.choices, required=False)
+
+
+class MyGroupsSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Group
+        fields=["group_id", "group_name"]

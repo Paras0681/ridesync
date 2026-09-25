@@ -16,7 +16,6 @@ export default function App() {
             </ProtectedRoute>
           }
         />
-        {/* Kept around as a raw API debug tool — not part of the real app flow */}
         <Route
           path="/debug"
           element={

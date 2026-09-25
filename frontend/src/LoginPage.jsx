@@ -16,10 +16,7 @@ export default function LoginPage() {
     try {
       await login(username, password);
       navigate("/dashboard");
-    } catch (err) {
-      // Admin-granted-access model: a wrong password and "this account
-      // doesn't exist yet" should look the same to the user for security,
-      // so we don't try to distinguish them here.
+    } catch {
       setError("Invalid username or password.");
     } finally {
       setLoading(false);
@@ -27,35 +24,29 @@ export default function LoginPage() {
   };
 
   return (
-    <div style={{ maxWidth: 320, margin: "80px auto", fontFamily: "sans-serif" }}>
-      <h2>RideSync Login</h2>
+    <div className="login-page">
+      <div className="login-mark">🏍️</div>
+      <h2>RideSync</h2>
+      <p className="login-sub">Sign in with the account your group admin set up</p>
+
       <form onSubmit={handleSubmit}>
-        <div style={{ marginBottom: 12 }}>
-          <input
-            type="text"
-            placeholder="Username"
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-            required
-            style={{ width: "100%", padding: 8 }}
-          />
+        <div className="login-field">
+          <label>Username</label>
+          <input className="input-modern" type="text" placeholder="e.g. test.rider"
+            value={username} onChange={(e) => setUsername(e.target.value)} required />
         </div>
-        <div style={{ marginBottom: 12 }}>
-          <input
-            type="password"
-            placeholder="Password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-            style={{ width: "100%", padding: 8 }}
-          />
+        <div className="login-field">
+          <label>Password</label>
+          <input className="input-modern" type="password" placeholder="••••••••"
+            value={password} onChange={(e) => setPassword(e.target.value)} required />
         </div>
-        {error && <p style={{ color: "red", fontSize: 14 }}>{error}</p>}
-        <button type="submit" disabled={loading} style={{ width: "100%", padding: 10 }}>
+        {error && <p className="error-text">{error}</p>}
+        <button className="btn btn-amber btn-block" type="submit" disabled={loading}>
           {loading ? "Logging in…" : "Log in"}
         </button>
       </form>
-      <p style={{ fontSize: 13, color: "#666", marginTop: 16 }}>
+
+      <p className="login-note">
         Accounts are created by an admin — contact your group admin if you don't have credentials yet.
       </p>
     </div>

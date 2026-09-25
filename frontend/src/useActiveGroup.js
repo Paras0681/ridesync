@@ -1,15 +1,17 @@
 import { useState } from "react";
 
-// TEMPORARY, same as the earlier group-id workaround: there's no "list my
-// groups" endpoint yet, so we just remember one group id in localStorage.
-// Replace with a real group picker once that endpoint exists.
+// Shared across Maps (notifications), Chat, and Info tabs — whichever
+// group the user picks from GroupPicker stays selected across all three
+// until they change it.
 export function useActiveGroup() {
-  const [groupId, setGroupIdState] = useState(localStorage.getItem("active_group_id") || "");
+  const stored = localStorage.getItem("active_group");
+  const initial = stored ? JSON.parse(stored) : { id: "", name: "" };
+  const [group, setGroupState] = useState(initial);
 
-  const setGroupId = (value) => {
-    setGroupIdState(value);
-    localStorage.setItem("active_group_id", value);
+  const setGroup = (groupObj) => {
+    setGroupState(groupObj);
+    localStorage.setItem("active_group", JSON.stringify(groupObj));
   };
 
-  return [groupId, setGroupId];
+  return [group, setGroup]; // group = { id, name }
 }

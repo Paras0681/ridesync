@@ -12,7 +12,8 @@ from .serializers import (
     BikeInfoSerializer,
     MessageSerializer,
     RiderLocationSerializer,
-    UpdateLocationSerializer
+    UpdateLocationSerializer,
+    MyGroupsSerializer
 )
 
 class CustomTokenObtainPairView(TokenObtainPairView):
@@ -124,6 +125,14 @@ class GroupLocationView(APIView):
             status=status.HTTP_200_OK,
         )
 
+class MyGroups(APIView):
+    def get(self, request):
+        groups = request.user.rider_profile.groups.all()
+        serializer = MyGroupsSerializer(groups, many=True)
+        return Response(
+            serializer.data,
+            status=status.HTTP_200_OK,
+        )
 
 # Chats and notification related views
 class MessageCursorPagination(CursorPagination):
@@ -167,7 +176,7 @@ class NotificationsListView(APIView):
     def get(self, request):
         notifications = Message.objects.filter(
             message_type="NOTIFICATION",
-            group__members=request.user.rider,
+            group__members=request.user.rider_profile,
         )
         paginator = MessageCursorPagination()
         page = paginator.paginate_queryset(notifications, request)

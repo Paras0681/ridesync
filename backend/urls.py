@@ -8,7 +8,8 @@ from .views import (
     NotificationsListView,
     UpdateMyLocationView,
     RiderLocationDetailView,
-    GroupLocationView
+    GroupLocationView,
+    MyGroups
 )
 
 
@@ -27,4 +28,5 @@ urlpatterns = [
     path("location/me/", UpdateMyLocationView.as_view()),
     path("locations/<uuid:rider_id>/", RiderLocationDetailView.as_view()),
     path("groups/<uuid:group_id>/locations/", GroupLocationView.as_view()),
+    path("groups/mine/", MyGroups.as_view()),
 ]

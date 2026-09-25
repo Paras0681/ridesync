@@ -1,16 +1,20 @@
 import { useState, useEffect } from "react";
 import api from "./api";
+import { useActiveGroup } from "./useActiveGroup";
+import GroupPicker from "./GroupPicker";
 
 export default function InfoScreen() {
+  const [group, setGroup] = useActiveGroup();
   const [notifications, setNotifications] = useState([]);
   const [error, setError] = useState(null);
 
   useEffect(() => {
+    if (!group.id) return;
     let cancelled = false;
 
     async function load() {
       try {
-        const res = await api.get("/notifications/");
+        const res = await api.get("/notifications/", { params: { group: group.id } });
         if (!cancelled) {
           setNotifications(res.data.results);
           setError(null);
@@ -26,20 +30,27 @@ export default function InfoScreen() {
       cancelled = true;
       clearInterval(timer);
     };
-  }, []);
+  }, [group.id]);
 
   return (
-    <div style={{ padding: 12, overflowY: "auto", height: "100%" }}>
-      <h3>Notifications</h3>
-      {error && <div style={{ color: "red", fontSize: 13 }}>{error}</div>}
-      {notifications.length === 0 && !error && (
-        <p style={{ color: "#666" }}>No notifications yet.</p>
+    <div className="screen-container">
+      <div className="screen-header">
+        <h3 className="display" style={{ margin: 0, fontSize: 24 }}>Notifications</h3>
+        <div style={{ width: 180 }}>
+          <GroupPicker value={group.id} onChange={setGroup} />
+        </div>
+      </div>
+
+      {error && <div className="error-text">{error}</div>}
+      {!group.id && <p className="muted-text">Pick a group above to see its notifications.</p>}
+      {group.id && notifications.length === 0 && !error && (
+        <p className="muted-text">No notifications yet.</p>
       )}
       {notifications.map((n) => (
-        <div key={n.message_id} style={{ padding: "10px 0", borderBottom: "1px solid #eee" }}>
-          <div style={{ fontWeight: 600 }}>{n.sender_name}</div>
+        <div key={n.message_id} className="list-item">
+          <div className="list-item-title">{n.sender_name}</div>
           <div>{n.chat_message}</div>
-          <div style={{ fontSize: 11, color: "#999" }}>{new Date(n.created_at).toLocaleString()}</div>
+          <div className="list-item-meta">{new Date(n.created_at).toLocaleString()}</div>
         </div>
       ))}
     </div>
